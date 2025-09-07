@@ -162,12 +162,16 @@ class WepScanDetector:
             gray (np.ndarray): Grayscale image
             
         Returns:
-            Dict: Weapon shape analysis results
+            Dict: Weapon shape analysis results with precise locations
         """
         gun_count = 0
         rectangular_count = 0
         suspicious_rectangles = 0
         overall_weapon_probability = 0.0
+        
+        # Store precise locations of detected weapons
+        gun_locations = []
+        knife_locations = []
         
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -187,12 +191,30 @@ class WepScanDetector:
                 gun_count += 1
                 overall_weapon_probability += 0.4
                 
+                # Calculate confidence based on shape characteristics
+                confidence_boost = self._calculate_shape_confidence(contour, area, aspect_ratio)
+                
+                # Store precise gun location
+                gun_locations.append({
+                    'bbox': [x, y, x + w, y + h],
+                    'confidence_boost': confidence_boost,
+                    'area': area,
+                    'aspect_ratio': aspect_ratio
+                })
+                
             # Rectangular object analysis (potential knives, blades)
             elif len(approx) >= 4 and 1.5 <= aspect_ratio <= 6.0:
                 rectangular_count += 1
                 if aspect_ratio > 3.0:  # Long thin objects (knife-like)
                     suspicious_rectangles += 1
                     overall_weapon_probability += 0.2
+                    
+                    # Store knife location
+                    knife_locations.append({
+                        'bbox': [x, y, x + w, y + h],
+                        'aspect_ratio': aspect_ratio,
+                        'area': area
+                    })
         
         # Normalize probability
         overall_weapon_probability = min(1.0, overall_weapon_probability)
@@ -201,7 +223,9 @@ class WepScanDetector:
             'gun_count': gun_count,
             'rectangular_count': rectangular_count,
             'suspicious_rectangles': suspicious_rectangles,
-            'overall_weapon_probability': overall_weapon_probability
+            'overall_weapon_probability': overall_weapon_probability,
+            'gun_locations': gun_locations,
+            'knife_locations': knife_locations
         }
     
     def _detect_gun_features(self, edges: np.ndarray, gray: np.ndarray) -> Dict:
@@ -294,6 +318,38 @@ class WepScanDetector:
                 
         return False
     
+    def _calculate_shape_confidence(self, contour, area: float, aspect_ratio: float) -> float:
+        """
+        Calculate confidence boost based on shape characteristics.
+        
+        Args:
+            contour: OpenCV contour
+            area (float): Contour area
+            aspect_ratio (float): Width/height ratio
+            
+        Returns:
+            float: Confidence boost (0-0.3)
+        """
+        confidence_boost = 0.0
+        
+        # Boost for good size
+        if 1500 <= area <= 8000:
+            confidence_boost += 0.1
+        
+        # Boost for gun-like aspect ratio
+        if 1.3 <= aspect_ratio <= 2.2:
+            confidence_boost += 0.1
+        
+        # Boost for shape complexity (concavity)
+        hull = cv2.convexHull(contour)
+        hull_area = cv2.contourArea(hull)
+        if hull_area > 0:
+            solidity = area / hull_area
+            if 0.6 <= solidity <= 0.85:  # Good gun-like solidity
+                confidence_boost += 0.1
+        
+        return confidence_boost
+    
     def _detect_trigger_pattern(self, edges: np.ndarray) -> float:
         """
         Detect trigger guard patterns in edge image.
@@ -355,106 +411,190 @@ class WepScanDetector:
 
     def _generate_enhanced_detections(self, width: int, height: int, cv_features: Dict) -> List[Dict]:
         """
-        Generate weapon detections based on real computer vision analysis.
+        Generate weapon detections using precise locations from computer vision analysis.
         
         Args:
             width (int): Image width
             height (int): Image height
-            cv_features (Dict): Comprehensive computer vision features
+            cv_features (Dict): Comprehensive computer vision features with locations
             
         Returns:
-            List[Dict]: List of detected weapons with confidence scores
+            List[Dict]: List of detected weapons with accurate bounding boxes
         """
         detections = []
         
         # Extract analysis results
         weapon_probability = cv_features['weapon_probability']
-        gun_shapes = cv_features['gun_shapes_detected']
+        gun_locations = cv_features.get('gun_locations', [])
+        knife_locations = cv_features.get('knife_locations', [])
         trigger_score = cv_features['trigger_patterns']
         barrel_score = cv_features['barrel_patterns']
         metal_score = cv_features['metal_density_score']
         
-        # Gun detection based on shape analysis
-        if gun_shapes > 0 or trigger_score > 0.3 or barrel_score > 0.3:
-            for i in range(gun_shapes + int(trigger_score > 0.5)):
-                # Determine weapon type based on analysis
-                if trigger_score > 0.6 and barrel_score > 0.5:
-                    label = 'pistol' if weapon_probability > 0.7 else 'gun'
-                    base_confidence = 0.7 + (trigger_score * 0.2) + (barrel_score * 0.1)
-                elif trigger_score > 0.4:
-                    label = 'gun'
-                    base_confidence = 0.5 + (trigger_score * 0.3)
-                else:
-                    label = 'suspicious_object'
-                    base_confidence = 0.4 + (weapon_probability * 0.2)
-                
-                # Boost confidence for strong metal signatures
-                if metal_score > 0.5:
-                    base_confidence += 0.15
-                
-                confidence = min(0.95, base_confidence)
-                
-                # Generate bounding box around detected weapon area
-                center_x = width // 2 + random.randint(-width//4, width//4)
-                center_y = height // 2 + random.randint(-height//4, height//4)
-                
-                # Size based on weapon probability
-                box_scale = 0.8 + (weapon_probability * 0.4)
-                box_width = int(80 * box_scale + random.randint(-20, 20))
-                box_height = int(60 * box_scale + random.randint(-15, 15))
-                
-                x1 = max(0, center_x - box_width//2)
-                y1 = max(0, center_y - box_height//2)
-                x2 = min(width, x1 + box_width)
-                y2 = min(height, y1 + box_height)
-                
-                detection = {
-                    'label': label,
-                    'confidence': round(confidence, 3),
-                    'bbox': [x1, y1, x2, y2],
-                    'color': self._get_color_for_confidence(confidence),
-                    'detection_method': 'shape_analysis'
-                }
-                
-                detections.append(detection)
-        
-        # Knife/blade detection based on rectangular shapes
-        suspicious_rects = cv_features['suspicious_rectangles']
-        if suspicious_rects > 0 and metal_score > 0.2:
-            label = 'knife' if metal_score > 0.4 else 'blade'
-            confidence = 0.3 + (metal_score * 0.4) + min(0.2, suspicious_rects * 0.1)
+        # Process gun detections using actual contour locations
+        for gun_location in gun_locations:
+            bbox = gun_location['bbox']
+            confidence_boost = gun_location['confidence_boost']
+            area = gun_location['area']
             
-            # Generate knife detection
-            x1 = random.randint(0, max(1, width - 100))
-            y1 = random.randint(0, max(1, height - 40))
-            x2 = x1 + random.randint(60, 100)
-            y2 = y1 + random.randint(20, 40)
+            # Determine weapon type based on analysis
+            if trigger_score > 0.6 and barrel_score > 0.5:
+                label = 'pistol' if weapon_probability > 0.7 else 'gun'
+                base_confidence = 0.7 + (trigger_score * 0.2) + (barrel_score * 0.1)
+            elif trigger_score > 0.4 or area > 2000:
+                label = 'gun'
+                base_confidence = 0.5 + (trigger_score * 0.3)
+            else:
+                label = 'gun'  # Changed from suspicious_object since we have gun shape
+                base_confidence = 0.4 + (weapon_probability * 0.2)
+            
+            # Add confidence boosts
+            base_confidence += confidence_boost
+            if metal_score > 0.5:
+                base_confidence += 0.15
+            
+            confidence = min(0.95, base_confidence)
+            
+            # Use actual bounding box with small adjustments for better visibility
+            x1, y1, x2, y2 = bbox
+            
+            # Expand bounding box slightly for better visibility
+            padding = 10
+            x1 = max(0, x1 - padding)
+            y1 = max(0, y1 - padding)
+            x2 = min(width, x2 + padding)
+            y2 = min(height, y2 + padding)
             
             detection = {
                 'label': label,
                 'confidence': round(confidence, 3),
                 'bbox': [x1, y1, x2, y2],
                 'color': self._get_color_for_confidence(confidence),
-                'detection_method': 'rectangular_analysis'
+                'detection_method': 'precise_location'
             }
             
             detections.append(detection)
         
-        # Metal object detection for high metal scores without clear weapon shapes
-        if metal_score > 0.6 and len(detections) == 0:
-            confidence = 0.3 + (metal_score * 0.3)
+        # Process knife detections using actual locations
+        for knife_location in knife_locations:
+            bbox = knife_location['bbox']
+            aspect_ratio = knife_location['aspect_ratio']
+            
+            label = 'knife' if metal_score > 0.4 else 'blade'
+            confidence = 0.4 + (metal_score * 0.3) + min(0.2, (aspect_ratio - 1.5) * 0.1)
+            
+            # Use actual bounding box
+            x1, y1, x2, y2 = bbox
+            
+            # Small padding for visibility
+            padding = 5
+            x1 = max(0, x1 - padding)
+            y1 = max(0, y1 - padding)
+            x2 = min(width, x2 + padding)
+            y2 = min(height, y2 + padding)
             
             detection = {
-                'label': 'metal_object',
+                'label': label,
                 'confidence': round(confidence, 3),
-                'bbox': [width//4, height//4, 3*width//4, 3*height//4],
+                'bbox': [x1, y1, x2, y2],
                 'color': self._get_color_for_confidence(confidence),
-                'detection_method': 'density_analysis'
+                'detection_method': 'precise_location'
             }
             
             detections.append(detection)
         
+        # Fallback: High-confidence trigger/barrel patterns without shape detection
+        if trigger_score > 0.6 and len(detections) == 0:
+            # Use center-based detection as fallback
+            center_x, center_y = width // 2, height // 2
+            box_size = 100
+            
+            detection = {
+                'label': 'gun',
+                'confidence': round(0.5 + trigger_score * 0.3, 3),
+                'bbox': [center_x - box_size//2, center_y - box_size//2, 
+                        center_x + box_size//2, center_y + box_size//2],
+                'color': self._get_color_for_confidence(0.5 + trigger_score * 0.3),
+                'detection_method': 'trigger_pattern'
+            }
+            
+            detections.append(detection)
+        
+        # Remove duplicate/overlapping detections
+        detections = self._remove_overlapping_detections(detections)
+        
         return detections
+    
+    def _remove_overlapping_detections(self, detections: List[Dict]) -> List[Dict]:
+        """
+        Remove overlapping detection boxes to avoid duplicates.
+        
+        Args:
+            detections (List[Dict]): List of detection results
+            
+        Returns:
+            List[Dict]: Filtered detections without significant overlap
+        """
+        if len(detections) <= 1:
+            return detections
+        
+        # Sort detections by confidence (highest first)
+        detections.sort(key=lambda x: x['confidence'], reverse=True)
+        
+        filtered_detections = []
+        
+        for detection in detections:
+            bbox1 = detection['bbox']
+            
+            # Check if this detection overlaps significantly with any kept detection
+            overlap_found = False
+            for kept_detection in filtered_detections:
+                bbox2 = kept_detection['bbox']
+                
+                # Calculate intersection over union (IoU)
+                iou = self._calculate_iou(bbox1, bbox2)
+                
+                # If overlap is > 30%, skip this detection
+                if iou > 0.3:
+                    overlap_found = True
+                    break
+            
+            if not overlap_found:
+                filtered_detections.append(detection)
+        
+        return filtered_detections
+    
+    def _calculate_iou(self, bbox1: List[int], bbox2: List[int]) -> float:
+        """
+        Calculate Intersection over Union (IoU) of two bounding boxes.
+        
+        Args:
+            bbox1 (List[int]): First bounding box [x1, y1, x2, y2]
+            bbox2 (List[int]): Second bounding box [x1, y1, x2, y2]
+            
+        Returns:
+            float: IoU value between 0 and 1
+        """
+        # Calculate intersection
+        x1 = max(bbox1[0], bbox2[0])
+        y1 = max(bbox1[1], bbox2[1])
+        x2 = min(bbox1[2], bbox2[2])
+        y2 = min(bbox1[3], bbox2[3])
+        
+        if x2 <= x1 or y2 <= y1:
+            return 0.0
+        
+        intersection = (x2 - x1) * (y2 - y1)
+        
+        # Calculate union
+        area1 = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+        area2 = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
+        union = area1 + area2 - intersection
+        
+        if union == 0:
+            return 0.0
+        
+        return intersection / union
 
     def _generate_mock_detections(self, width: int, height: int) -> List[Dict]:
         """
