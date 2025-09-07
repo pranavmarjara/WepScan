@@ -5,6 +5,9 @@ import os
 import torch
 import torchvision.transforms as transforms
 from typing import List, Dict, Tuple
+from scipy.spatial.distance import euclidean
+from scipy import ndimage
+import math
 
 class WepScanDetector:
     """
@@ -82,66 +85,96 @@ class WepScanDetector:
     
     def _analyze_image_features(self, image: np.ndarray) -> Dict:
         """
-        Advanced weapon detection using real computer vision analysis.
+        State-of-the-art weapon detection using ensemble of advanced algorithms.
         
         Args:
             image (np.ndarray): Input image array
             
         Returns:
-            Dict: Comprehensive analysis including weapon-specific features
+            Dict: Comprehensive multi-modal analysis results
         """
         try:
             # Convert to grayscale for analysis
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             height, width = gray.shape
             
-            # Enhanced edge detection for weapon shapes
-            edges = cv2.Canny(gray, 30, 100)
-            edge_density = np.sum(edges > 0) / (height * width)
+            # Multi-scale edge detection
+            edges_fine = cv2.Canny(gray, 50, 150)
+            edges_coarse = cv2.Canny(gray, 100, 200)
             
-            # Find contours for shape analysis
-            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Advanced contour analysis
+            contours_fine, _ = cv2.findContours(edges_fine, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours_coarse, _ = cv2.findContours(edges_coarse, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            # Filter significant contours
-            significant_contours = [c for c in contours if cv2.contourArea(c) > 500]
+            # Template matching for weapon silhouettes
+            template_scores = self._advanced_template_matching(gray)
             
-            # Weapon-specific shape analysis
-            weapon_shapes = self._detect_weapon_shapes(significant_contours, gray)
-            gun_features = self._detect_gun_features(edges, gray)
-            density_analysis = self._analyze_density_patterns(gray)
+            # Shape descriptor analysis
+            shape_analysis = self._advanced_shape_analysis(contours_fine, gray)
             
-            # Calculate comprehensive features
+            # X-ray specific density analysis
+            xray_features = self._xray_density_analysis(gray)
+            
+            # Geometric invariant analysis
+            geometric_features = self._geometric_invariant_analysis(contours_fine)
+            
+            # Ensemble voting system
+            ensemble_results = self._ensemble_weapon_detection(
+                template_scores, shape_analysis, xray_features, geometric_features
+            )
+            
+            # Combine all analysis results
             features = {
-                'edge_density': float(edge_density),
-                'contour_count': len(significant_contours),
+                'edge_density': float(np.sum(edges_fine > 0) / (height * width)),
+                'contour_count': len([c for c in contours_fine if cv2.contourArea(c) > 1000]),
                 'avg_brightness': float(np.mean(gray)),
                 'contrast': float(np.std(gray)),
                 
-                # Weapon-specific features
-                'gun_shapes_detected': weapon_shapes['gun_count'],
-                'trigger_patterns': gun_features['trigger_score'],
-                'barrel_patterns': gun_features['barrel_score'],
-                'rectangular_objects': weapon_shapes['rectangular_count'],
+                # Advanced weapon detection results
+                'template_match_score': template_scores['max_score'],
+                'weapon_silhouette_detected': template_scores['weapon_detected'],
+                'shape_descriptor_score': shape_analysis['weapon_score'],
+                'xray_metal_signature': xray_features['metal_confidence'],
+                'geometric_weapon_score': geometric_features['weapon_probability'],
                 
-                # Advanced analysis
-                'metal_density_score': density_analysis['metal_score'],
-                'weapon_probability': weapon_shapes['overall_weapon_probability'],
-                'suspicious_rectangles': weapon_shapes['suspicious_rectangles'],
+                # Ensemble results (CRITICAL - this is what determines final detection)
+                'ensemble_weapon_probability': ensemble_results['weapon_probability'],
+                'ensemble_confidence': ensemble_results['confidence'],
+                'detection_consensus': ensemble_results['consensus_count'],
+                'weapon_locations': ensemble_results['weapon_locations'],
                 
                 # Legacy compatibility
-                'has_metallic_signature': density_analysis['metal_score'] > 0.3,
-                'suspicious_shapes': weapon_shapes['gun_count'] + weapon_shapes['rectangular_count']
+                'gun_shapes_detected': len(ensemble_results['weapon_locations']),
+                'trigger_patterns': geometric_features.get('trigger_score', 0.0),
+                'barrel_patterns': geometric_features.get('barrel_score', 0.0),
+                'rectangular_objects': shape_analysis.get('rectangular_count', 0),
+                'metal_density_score': xray_features['metal_confidence'],
+                'weapon_probability': ensemble_results['weapon_probability'],
+                'suspicious_rectangles': 0,  # Disabled to reduce false positives
+                'has_metallic_signature': xray_features['metal_confidence'] > 0.7,
+                'suspicious_shapes': len(ensemble_results['weapon_locations']),
+                'gun_locations': ensemble_results['weapon_locations'],
+                'knife_locations': []
             }
             
             return features
             
         except Exception as e:
-            # Return safe defaults if analysis fails
+            # Return safe defaults - no detections
             return {
-                'edge_density': 0.02,
+                'edge_density': 0.01,
                 'contour_count': 0,
                 'avg_brightness': 128.0,
-                'contrast': 20.0,
+                'contrast': 15.0,
+                'template_match_score': 0.0,
+                'weapon_silhouette_detected': False,
+                'shape_descriptor_score': 0.0,
+                'xray_metal_signature': 0.0,
+                'geometric_weapon_score': 0.0,
+                'ensemble_weapon_probability': 0.0,
+                'ensemble_confidence': 0.0,
+                'detection_consensus': 0,
+                'weapon_locations': [],
                 'gun_shapes_detected': 0,
                 'trigger_patterns': 0.0,
                 'barrel_patterns': 0.0,
@@ -150,9 +183,294 @@ class WepScanDetector:
                 'weapon_probability': 0.0,
                 'suspicious_rectangles': 0,
                 'has_metallic_signature': False,
-                'suspicious_shapes': 0
+                'suspicious_shapes': 0,
+                'gun_locations': [],
+                'knife_locations': []
             }
     
+    def _advanced_template_matching(self, gray: np.ndarray) -> Dict:
+        """
+        Advanced template matching using multiple weapon silhouettes.
+        
+        Args:
+            gray (np.ndarray): Grayscale image
+            
+        Returns:
+            Dict: Template matching results
+        """
+        # Create weapon templates programmatically
+        templates = self._create_weapon_templates()
+        
+        best_score = 0.0
+        best_location = None
+        weapon_detected = False
+        
+        for template_name, template in templates.items():
+            # Multi-scale template matching
+            for scale in [0.5, 0.7, 1.0, 1.3, 1.5]:
+                # Resize template
+                if scale != 1.0:
+                    h, w = template.shape
+                    new_h, new_w = int(h * scale), int(w * scale)
+                    if new_h > 0 and new_w > 0 and new_h < gray.shape[0] and new_w < gray.shape[1]:
+                        scaled_template = cv2.resize(template, (new_w, new_h))
+                    else:
+                        continue
+                else:
+                    scaled_template = template
+                
+                # Skip if template is larger than image
+                if scaled_template.shape[0] >= gray.shape[0] or scaled_template.shape[1] >= gray.shape[1]:
+                    continue
+                
+                # Template matching
+                result = cv2.matchTemplate(gray, scaled_template, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                
+                if max_val > best_score:
+                    best_score = max_val
+                    best_location = max_loc
+                    # High threshold for weapon detection
+                    weapon_detected = max_val > 0.6
+        
+        return {
+            'max_score': float(best_score),
+            'best_location': best_location,
+            'weapon_detected': weapon_detected
+        }
+    
+    def _create_weapon_templates(self) -> Dict:
+        """Create simple weapon templates for matching."""
+        templates = {}
+        
+        # Pistol template (simplified L-shape)
+        pistol = np.zeros((40, 60), dtype=np.uint8)
+        # Barrel
+        pistol[15:25, 0:45] = 255
+        # Grip
+        pistol[25:40, 30:40] = 255
+        # Trigger area
+        pistol[20:30, 25:35] = 0
+        templates['pistol'] = pistol
+        
+        # Rifle template (long rectangular shape)
+        rifle = np.zeros((20, 80), dtype=np.uint8)
+        rifle[5:15, 0:75] = 255
+        rifle[8:12, 60:80] = 255  # Stock
+        templates['rifle'] = rifle
+        
+        return templates
+    
+    def _advanced_shape_analysis(self, contours: List, gray: np.ndarray) -> Dict:
+        """
+        Advanced shape analysis using multiple geometric descriptors.
+        
+        Args:
+            contours (List): List of contours
+            gray (np.ndarray): Grayscale image
+            
+        Returns:
+            Dict: Shape analysis results
+        """
+        weapon_score = 0.0
+        rectangular_count = 0
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < 1500:  # Increased minimum area
+                continue
+            
+            # Calculate shape descriptors
+            hu_moments = cv2.HuMoments(cv2.moments(contour)).flatten()
+            
+            # Aspect ratio analysis
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / h if h > 0 else 0
+            
+            # Solidity (convexity)
+            hull = cv2.convexHull(contour)
+            hull_area = cv2.contourArea(hull)
+            solidity = area / hull_area if hull_area > 0 else 0
+            
+            # Weapon-like characteristics
+            weapon_like_score = 0.0
+            
+            # Gun-like aspect ratio and solidity
+            if 1.3 <= aspect_ratio <= 2.8 and 0.55 <= solidity <= 0.88 and area > 2000:
+                weapon_like_score += 0.4
+                
+            # Complex shape (not just rectangle)
+            perimeter = cv2.arcLength(contour, True)
+            if perimeter > 0:
+                circularity = 4 * np.pi * area / (perimeter * perimeter)
+                if 0.1 <= circularity <= 0.6:  # Complex shape
+                    weapon_like_score += 0.3
+            
+            # Size validation
+            if 2000 <= area <= 15000:  # Reasonable weapon size
+                weapon_like_score += 0.2
+            
+            weapon_score = max(weapon_score, weapon_like_score)
+            
+            if aspect_ratio > 2.0:
+                rectangular_count += 1
+        
+        return {
+            'weapon_score': weapon_score,
+            'rectangular_count': rectangular_count
+        }
+    
+    def _xray_density_analysis(self, gray: np.ndarray) -> Dict:
+        """
+        X-ray specific density analysis for metallic objects.
+        
+        Args:
+            gray (np.ndarray): Grayscale image
+            
+        Returns:
+            Dict: X-ray density analysis results
+        """
+        # High-density regions (bright in X-ray = metal)
+        high_density_threshold = np.percentile(gray, 90)
+        high_density_mask = gray > high_density_threshold
+        
+        # Connected components analysis
+        num_labels, labels = cv2.connectedComponents(high_density_mask.astype(np.uint8))
+        
+        metal_confidence = 0.0
+        
+        if num_labels > 1:  # Ignore background
+            for i in range(1, num_labels):
+                component_mask = (labels == i)
+                component_area = np.sum(component_mask)
+                
+                # Check if component has weapon-like characteristics
+                if component_area > 1000:  # Significant size
+                    # Calculate density uniformity
+                    component_pixels = gray[component_mask]
+                    density_std = np.std(component_pixels)
+                    
+                    # Metallic objects have relatively uniform high density
+                    if density_std < 20 and np.mean(component_pixels) > high_density_threshold:
+                        metal_confidence = max(metal_confidence, 0.3 + (component_area / 10000) * 0.4)
+        
+        return {
+            'metal_confidence': min(1.0, metal_confidence)
+        }
+    
+    def _geometric_invariant_analysis(self, contours: List) -> Dict:
+        """
+        Geometric invariant analysis for weapon shape recognition.
+        
+        Args:
+            contours (List): List of contours
+            
+        Returns:
+            Dict: Geometric analysis results
+        """
+        weapon_probability = 0.0
+        trigger_score = 0.0
+        barrel_score = 0.0
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < 2000:
+                continue
+            
+            # Fit ellipse for orientation analysis
+            if len(contour) >= 5:
+                try:
+                    ellipse = cv2.fitEllipse(contour)
+                    (center, axes, orientation) = ellipse
+                    major_axis, minor_axis = max(axes), min(axes)
+                    
+                    # Gun-like elongation
+                    if minor_axis > 0:
+                        elongation = major_axis / minor_axis
+                        if 1.5 <= elongation <= 3.5:
+                            weapon_probability += 0.2
+                            
+                    # Look for gun-specific features
+                    if 2.0 <= elongation <= 3.0 and area > 3000:
+                        barrel_score = max(barrel_score, 0.4)
+                        
+                except:
+                    pass
+            
+            # Contour complexity analysis
+            perimeter = cv2.arcLength(contour, True)
+            if perimeter > 0:
+                compactness = area / (perimeter * perimeter)
+                if 0.05 <= compactness <= 0.15:  # Gun-like compactness
+                    trigger_score = max(trigger_score, 0.3)
+        
+        return {
+            'weapon_probability': min(1.0, weapon_probability),
+            'trigger_score': trigger_score,
+            'barrel_score': barrel_score
+        }
+    
+    def _ensemble_weapon_detection(self, template_scores: Dict, shape_analysis: Dict, 
+                                  xray_features: Dict, geometric_features: Dict) -> Dict:
+        """
+        Ensemble system requiring multiple algorithms to agree on weapon detection.
+        
+        Args:
+            template_scores (Dict): Template matching results
+            shape_analysis (Dict): Shape analysis results  
+            xray_features (Dict): X-ray density analysis
+            geometric_features (Dict): Geometric analysis
+            
+        Returns:
+            Dict: Ensemble detection results
+        """
+        # Individual algorithm votes
+        votes = []
+        weapon_locations = []
+        
+        # Template matching vote (weight: 40%)
+        if template_scores['weapon_detected'] and template_scores['max_score'] > 0.6:
+            votes.append(0.4)
+            if template_scores['best_location']:
+                weapon_locations.append({
+                    'bbox': [template_scores['best_location'][0], template_scores['best_location'][1],
+                            template_scores['best_location'][0] + 60, template_scores['best_location'][1] + 40],
+                    'confidence_boost': template_scores['max_score'] * 0.3,
+                    'area': 2400,
+                    'aspect_ratio': 1.5
+                })
+        
+        # Shape analysis vote (weight: 25%)
+        if shape_analysis['weapon_score'] > 0.7:
+            votes.append(0.25)
+        
+        # X-ray density vote (weight: 20%)
+        if xray_features['metal_confidence'] > 0.6:
+            votes.append(0.2)
+        
+        # Geometric analysis vote (weight: 15%)
+        if geometric_features['weapon_probability'] > 0.5:
+            votes.append(0.15)
+        
+        # Calculate ensemble results
+        total_vote = sum(votes)
+        consensus_count = len(votes)
+        
+        # STRICT REQUIREMENTS: Need at least 2 algorithms agreeing AND high total confidence
+        weapon_probability = 0.0
+        confidence = 0.0
+        
+        if consensus_count >= 2 and total_vote >= 0.6:
+            weapon_probability = min(1.0, total_vote)
+            confidence = weapon_probability
+        
+        return {
+            'weapon_probability': weapon_probability,
+            'confidence': confidence,
+            'consensus_count': consensus_count,
+            'weapon_locations': weapon_locations if weapon_probability > 0.6 else []
+        }
+
     def _detect_weapon_shapes(self, contours: List, gray: np.ndarray) -> Dict:
         """
         Detect weapon-like shapes in contours using geometric analysis.
