@@ -133,47 +133,6 @@
             </div>
         </div>
 
-        <!-- Quick Stats -->
-        <div class="row stats-cards-row mt-4">
-            <div class="col-md-3">
-                <div class="card card-security text-center">
-                    <div class="card-body">
-                        <h3 class="text-info">{{ history|length }}</h3>
-                        <small class="text-muted">Scans Today</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-security text-center">
-                    <div class="card-body">
-                        <h3 class="text-success">
-                            {% set safe_scans = history|selectattr('threat_level', 'equalto', 'SAFE')|list|length %}
-                            {{ safe_scans }}
-                        </h3>
-                        <small class="text-muted">Safe Items</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-security text-center">
-                    <div class="card-body">
-                        <h3 class="text-warning">
-                            {% set alert_scans = history|selectattr('alert_triggered', 'equalto', true)|list|length %}
-                            {{ alert_scans }}
-                        </h3>
-                        <small class="text-muted">Alerts</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-security text-center">
-                    <div class="card-body">
-                        <h3 class="text-info">99.2%</h3>
-                        <small class="text-muted">Accuracy</small>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="col-lg-4">
