@@ -388,72 +388,131 @@ body {
 }
 
 .badge {
-  background: var(--wepscan-primary) !important;
-  color: var(--wepscan-text-light) !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
 }
 
 .badge.bg-success {
-  background: var(--wepscan-success) !important;
-  color: var(--wepscan-darker) !important;
+  background: var(--color-success) !important;
+  color: var(--bg-surface-dark) !important;
 }
 
 .badge.bg-info {
-  background: var(--wepscan-danger) !important;
+  background: var(--color-info) !important;
   color: white !important;
 }
 
 .badge.bg-danger {
-  background: var(--wepscan-danger) !important;
+  background: var(--color-danger) !important;
   color: white !important;
 }
 
 .badge.bg-warning {
-  background: var(--wepscan-warning) !important;
-  color: var(--wepscan-darker) !important;
+  background: var(--color-warning) !important;
+  color: var(--bg-surface-dark) !important;
 }
 
 .btn-outline-secondary {
-  border-color: var(--wepscan-border) !important;
-  color: var(--wepscan-text-light) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
 .btn-outline-secondary:hover {
-  background: var(--wepscan-danger) !important;
-  border-color: var(--wepscan-danger) !important;
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
   color: white !important;
 }
 
 .btn-outline-info {
-  border-color: var(--wepscan-danger) !important;
-  color: var(--wepscan-danger) !important;
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
 }
 
 .btn-outline-info:hover {
-  background: var(--wepscan-danger) !important;
-  border-color: var(--wepscan-danger) !important;
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
   color: white !important;
 }
 
 .alert {
-  background: var(--wepscan-dark) !important;
-  border: 1px solid var(--wepscan-border) !important;
-  color: var(--wepscan-text-light) !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
 }
 
 .alert-danger {
   background: rgba(255, 71, 87, 0.2) !important;
-  border-color: var(--wepscan-danger) !important;
+  border-color: var(--color-danger) !important;
 }
 
 .navbar-text {
-  color: var(--wepscan-text-muted) !important;
+  color: var(--text-secondary) !important;
 }
 
 footer {
-  background: var(--wepscan-darker) !important;
-  border-color: var(--wepscan-border) !important;
+  background: var(--bg-surface-dark) !important;
+  border-color: var(--border-color) !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--wepscan-dark) !important;
+  background: var(--bg-surface) !important;
+}
+
+/* Theme Dropdown Styles */
+.theme-dropdown {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 15px var(--shadow-color) !important;
+  min-width: 150px;
+}
+
+.theme-dropdown .dropdown-item {
+  color: var(--text-primary) !important;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.theme-dropdown .dropdown-item:hover,
+.theme-dropdown .dropdown-item.active {
+  background: var(--accent-color) !important;
+  color: white !important;
+}
+
+.theme-dropdown .dropdown-item i {
+  width: 20px;
+  text-align: center;
+}
+
+/* System Theme Media Query */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --bg-primary: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f8f9fa;
+    --bg-surface: #ffffff;
+    --bg-surface-dark: #f1f3f4;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --accent-color: var(--color-info);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --bg-primary: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+    --bg-secondary: #1a1a2e;
+    --bg-tertiary: #16213e;
+    --bg-surface: #0c0c0c;
+    --bg-surface-dark: #000000;
+    --text-primary: #e1e5e9;
+    --text-secondary: #8a8a8a;
+    --border-color: #2c2c2c;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --accent-color: var(--color-danger);
+  }
 }
