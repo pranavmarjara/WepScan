@@ -1,81 +1,109 @@
-/* WepScan Dark Mode Styles */
+/* WepScan Theme System */
 :root {
-  --wepscan-primary: #1a1a2e;
-  --wepscan-secondary: #16213e;
-  --wepscan-accent: #0f3460;
-  --wepscan-danger: #ff4757;
-  --wepscan-warning: #ffa502;
-  --wepscan-success: #2ed573;
-  --wepscan-dark: #0c0c0c;
-  --wepscan-darker: #000000;
-  --wepscan-text-light: #e1e5e9;
-  --wepscan-text-muted: #8a8a8a;
-  --wepscan-border: #2c2c2c;
+  /* Color Palette */
+  --color-danger: #ff4757;
+  --color-warning: #ffa502;
+  --color-success: #2ed573;
+  --color-info: #3742fa;
+}
+
+/* Dark Theme (Default) */
+:root,
+[data-theme="dark"] {
+  --bg-primary: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #16213e;
+  --bg-surface: #0c0c0c;
+  --bg-surface-dark: #000000;
+  --text-primary: #e1e5e9;
+  --text-secondary: #8a8a8a;
+  --border-color: #2c2c2c;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --accent-color: var(--color-danger);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg-primary: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9fa;
+  --bg-surface: #ffffff;
+  --bg-surface-dark: #f1f3f4;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --border-color: #dee2e6;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --accent-color: var(--color-info);
 }
 
 body {
-  background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
-  color: var(--wepscan-text-light);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .navbar-brand {
   font-weight: 700;
   font-size: 1.5rem;
-  color: var(--wepscan-text-light) !important;
+  color: var(--text-primary) !important;
 }
 
 .navbar-brand .text-danger {
-  color: var(--wepscan-danger) !important;
+  color: var(--accent-color) !important;
 }
 
 .navbar {
-  background: var(--wepscan-darker) !important;
-  border-bottom: 1px solid var(--wepscan-border);
+  background: var(--bg-surface-dark) !important;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .nav-link {
-  color: var(--wepscan-text-light) !important;
+  color: var(--text-primary) !important;
+  transition: color 0.3s ease;
 }
 
 .nav-link:hover {
-  color: var(--wepscan-danger) !important;
+  color: var(--accent-color) !important;
 }
 
 .hero-section {
-  background: linear-gradient(135deg, rgba(26, 26, 46, 0.8) 0%, rgba(22, 33, 62, 0.8) 100%);
+  background: var(--bg-secondary);
   border-radius: 15px;
   padding: 3rem 2rem;
   margin-bottom: 2rem;
-  border: 1px solid var(--wepscan-border);
+  border: 1px solid var(--border-color);
   backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
 }
 
 .upload-zone {
-  border: 3px dashed var(--wepscan-border);
+  border: 3px dashed var(--border-color);
   border-radius: 15px;
   padding: 3.5rem 2.5rem;
   text-align: center;
-  background: var(--wepscan-dark);
+  background: var(--bg-surface);
   transition: all 0.3s ease;
   cursor: pointer;
 }
 
 .upload-zone:hover {
-  border-color: var(--wepscan-danger);
-  background: rgba(255, 71, 87, 0.1);
+  border-color: var(--accent-color);
+  background: var(--bg-tertiary);
   transform: translateY(-2px);
 }
 
 .upload-zone.dragover {
-  border-color: var(--wepscan-success);
-  background: rgba(46, 213, 115, 0.1);
+  border-color: var(--color-success);
+  background: var(--bg-tertiary);
 }
 
 .upload-icon {
   font-size: 4rem;
-  color: var(--wepscan-text-muted);
+  color: var(--text-secondary);
   margin-bottom: 1rem;
+  transition: color 0.3s ease;
 }
 
 .threat-level {
@@ -124,8 +152,8 @@ body {
 }
 
 .detection-item {
-  background: var(--wepscan-dark);
-  border: 1px solid var(--wepscan-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 1.25rem;
   margin-bottom: 0.75rem;
@@ -133,17 +161,18 @@ body {
 }
 
 .detection-item:hover {
-  background: var(--wepscan-primary);
-  border-color: var(--wepscan-danger);
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
   transform: translateX(5px);
 }
 
 .confidence-bar {
   height: 8px;
-  background: var(--wepscan-border);
+  background: var(--border-color);
   border-radius: 4px;
   overflow: hidden;
   margin-top: 0.5rem;
+  transition: background 0.3s ease;
 }
 
 .confidence-fill {
@@ -152,9 +181,9 @@ body {
   border-radius: 4px;
 }
 
-.confidence-high { background: var(--wepscan-danger); }
-.confidence-medium { background: var(--wepscan-warning); }
-.confidence-low { background: var(--wepscan-success); }
+.confidence-high { background: var(--color-danger); }
+.confidence-medium { background: var(--color-warning); }
+.confidence-low { background: var(--color-success); }
 
 .result-image {
   border-radius: 15px;
@@ -216,20 +245,22 @@ body {
 .status-warning { background: var(--wepscan-warning); }
 
 .card-security {
-  background: var(--wepscan-dark);
-  border: 1px solid var(--wepscan-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 15px;
   backdrop-filter: blur(10px);
   padding: 1.5rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px var(--shadow-color);
+  transition: all 0.3s ease;
 }
 
 .card-security .card-header {
-  background: var(--wepscan-primary);
-  border-bottom: 1px solid var(--wepscan-border);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
   border-radius: 15px 15px 0 0 !important;
   padding: 1.25rem 1.5rem;
-  color: var(--wepscan-text-light);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
 }
 
 .card-security .card-body {
