@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeThemeSystem();
+    initializeSidebar();
     initializeUploadZone();
     initializeFileInput();
     initializeTooltips();
@@ -438,4 +439,93 @@ window.WepScanTheme = {
     apply: applyTheme,
     current: () => currentTheme,
     getSystem: getSystemTheme
+};
+
+// Sidebar Management System
+function initializeSidebar() {
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const floatingSidebar = document.getElementById('floatingSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    if (mobileMenuToggle && floatingSidebar && sidebarOverlay) {
+        // Mobile menu toggle
+        mobileMenuToggle.addEventListener('click', function() {
+            toggleSidebar();
+        });
+        
+        // Close sidebar when clicking overlay
+        sidebarOverlay.addEventListener('click', function() {
+            closeSidebar();
+        });
+        
+        // Close sidebar on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && floatingSidebar.classList.contains('active')) {
+                closeSidebar();
+            }
+        });
+    }
+    
+    // Update active navigation links
+    updateActiveNavigation();
+}
+
+function toggleSidebar() {
+    const floatingSidebar = document.getElementById('floatingSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    if (floatingSidebar && sidebarOverlay) {
+        const isActive = floatingSidebar.classList.contains('active');
+        
+        if (isActive) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    }
+}
+
+function openSidebar() {
+    const floatingSidebar = document.getElementById('floatingSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    if (floatingSidebar && sidebarOverlay) {
+        floatingSidebar.classList.add('active');
+        sidebarOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeSidebar() {
+    const floatingSidebar = document.getElementById('floatingSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    if (floatingSidebar && sidebarOverlay) {
+        floatingSidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function updateActiveNavigation() {
+    const currentPath = window.location.pathname;
+    const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+    
+    navLinks.forEach(link => {
+        const linkPath = new URL(link.href).pathname;
+        
+        if (linkPath === currentPath) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+}
+
+// Export sidebar functions
+window.WepScanSidebar = {
+    toggle: toggleSidebar,
+    open: openSidebar,
+    close: closeSidebar,
+    updateActive: updateActiveNavigation
 };
