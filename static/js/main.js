@@ -56,7 +56,7 @@ function initializeFileInput() {
 
 function handleFileSelection(file) {
     const fileName = document.getElementById('fileName');
-    const uploadBtn = document.getElementById('uploadBtn');
+    const scanningStatus = document.getElementById('scanningStatus');
     const fileSizeLimit = 16 * 1024 * 1024; // 16MB
     
     // Validate file type
@@ -78,15 +78,15 @@ function handleFileSelection(file) {
         fileName.style.display = 'block';
     }
     
-    if (uploadBtn) {
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = 'Scan for Weapons';
-        uploadBtn.classList.remove('btn-secondary');
-        uploadBtn.classList.add('btn-wepscan-primary');
+    // Show scanning status
+    if (scanningStatus) {
+        scanningStatus.style.display = 'block';
     }
     
-    // Auto-submit if desired
-    // document.getElementById('uploadForm').submit();
+    // Auto-submit the form
+    setTimeout(() => {
+        document.getElementById('uploadForm').submit();
+    }, 500);
 }
 
 function formatFileSize(bytes) {

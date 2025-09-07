@@ -63,13 +63,12 @@
                             </label>
                         </div>
                         <div id="fileName" class="mt-3 text-info" style="display: none;"></div>
-                    </div>
-                    
-                    <div class="text-center mt-4">
-                        <button type="submit" id="uploadBtn" class="btn btn-secondary btn-lg" disabled>
-                            <i class="fas fa-search me-2"></i>
-                            Select File First
-                        </button>
+                        <div id="scanningStatus" class="mt-3 text-center" style="display: none;">
+                            <div class="spinner-border text-info me-2" role="status">
+                                <span class="visually-hidden">Scanning...</span>
+                            </div>
+                            <span class="text-info">Scanning for weapons...</span>
+                        </div>
                     </div>
                 </form>
                 
@@ -79,6 +78,57 @@
                         <strong>Security Notice:</strong> All uploaded images are processed locally and not stored permanently.
                         Detection results are kept in session memory for analysis purposes only.
                     </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scan Results Section -->
+        <div id="scanResults" class="card card-security mt-4" style="display: none;">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-search-plus me-2"></i>
+                        Scan Results
+                    </h5>
+                    <span id="threatLevel" class="threat-level"></span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Alert Banner -->
+                <div id="alertBanner" class="alert alert-security mb-3" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1">🚨 SECURITY ALERT TRIGGERED</h6>
+                            <p class="mb-0">Potential weapons or suspicious objects detected. Review results immediately.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Scanned Image -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="text-center">
+                            <img id="processedImage" src="" alt="Scanned X-ray image" class="result-image img-fluid" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <!-- Detection Details -->
+                        <h6 class="mb-3">
+                            <i class="fas fa-list me-2"></i>
+                            Detection Details
+                        </h6>
+                        <div id="detectionsList"></div>
+                        
+                        <!-- Risk Assessment -->
+                        <div class="mt-4">
+                            <h6 class="mb-3">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Risk Assessment
+                            </h6>
+                            <div id="riskAssessment"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -238,6 +288,149 @@ function updateSystemClock() {
         clockDisplay.textContent = `${dateString} ${timeString}`;
     }
 }
+
+// Display scan results if available
+{% if scan_result %}
+document.addEventListener('DOMContentLoaded', function() {
+    displayScanResults({{ scan_result|tojson }});
+});
+
+function displayScanResults(result) {
+    const scanResults = document.getElementById('scanResults');
+    const alertBanner = document.getElementById('alertBanner');
+    const threatLevel = document.getElementById('threatLevel');
+    const processedImage = document.getElementById('processedImage');
+    const detectionsList = document.getElementById('detectionsList');
+    const riskAssessment = document.getElementById('riskAssessment');
+    
+    // Show results section
+    scanResults.style.display = 'block';
+    
+    // Show alert banner if threat detected
+    if (result.alert_triggered) {
+        alertBanner.style.display = 'block';
+    }
+    
+    // Set threat level
+    threatLevel.textContent = result.threat_level;
+    threatLevel.className = `threat-level threat-${result.threat_level.toLowerCase()}`;
+    
+    // Show processed image
+    processedImage.src = `/static/processed/${result.processed_filename}`;
+    processedImage.style.display = 'block';
+    
+    // Build detections list
+    let detectionsHtml = '';
+    if (result.detections && result.detections.length > 0) {
+        result.detections.forEach(detection => {
+            const confidence = Math.round(detection.confidence * 100);
+            let riskBadge = '';
+            let iconClass = '';
+            
+            if (confidence >= 70) {
+                riskBadge = '<span class="badge bg-danger">High Risk</span>';
+            } else if (confidence >= 50) {
+                riskBadge = '<span class="badge bg-warning text-dark">Medium Risk</span>';
+            } else {
+                riskBadge = '<span class="badge bg-info">Low Risk</span>';
+            }
+            
+            if (detection.label.includes('gun') || detection.label.includes('pistol')) {
+                iconClass = 'fas fa-gun text-danger';
+            } else if (detection.label.includes('knife') || detection.label.includes('blade')) {
+                iconClass = 'fas fa-knife-kitchen text-warning';
+            } else if (detection.label.includes('explosive') || detection.label.includes('grenade')) {
+                iconClass = 'fas fa-bomb text-danger';
+            } else {
+                iconClass = 'fas fa-question-circle text-info';
+            }
+            
+            detectionsHtml += `
+                <div class="detection-item mb-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="${iconClass} me-1"></i>
+                                ${detection.label.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}
+                            </h6>
+                            <small class="text-muted">Confidence: ${confidence}%</small>
+                        </div>
+                        ${riskBadge}
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" data-confidence="${detection.confidence}" style="width: ${confidence}%"></div>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        detectionsHtml = `
+            <div class="text-center py-4">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h6 class="text-success">No Threats Detected</h6>
+                <p class="text-muted mb-0">The X-ray image appears to be clear of weapons and suspicious objects.</p>
+            </div>
+        `;
+    }
+    
+    detectionsList.innerHTML = detectionsHtml;
+    
+    // Risk assessment
+    let riskHtml = `
+        <div class="text-center mb-3">
+            <div class="threat-level threat-${result.threat_level.toLowerCase()} p-3 rounded">
+                <h5 class="mb-1">${result.threat_level}</h5>
+                <small>Overall Threat Level</small>
+            </div>
+        </div>
+    `;
+    
+    if (result.threat_level === 'CRITICAL') {
+        riskHtml += `
+            <p class="text-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Immediate Action Required:</strong> High-confidence weapon detection.
+            </p>
+        `;
+    } else if (result.threat_level === 'HIGH') {
+        riskHtml += `
+            <p class="text-warning">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Manual Inspection:</strong> Suspicious objects detected.
+            </p>
+        `;
+    } else if (result.threat_level === 'MEDIUM') {
+        riskHtml += `
+            <p class="text-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Secondary Screening:</strong> Low-confidence detections present.
+            </p>
+        `;
+    } else if (result.threat_level === 'LOW') {
+        riskHtml += `
+            <p class="text-muted">
+                <i class="fas fa-check me-2"></i>
+                <strong>Low Risk:</strong> Minimal threat indicators.
+            </p>
+        `;
+    } else {
+        riskHtml += `
+            <p class="text-success">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>All Clear:</strong> No threats detected.
+            </p>
+        `;
+    }
+    
+    riskAssessment.innerHTML = riskHtml;
+    
+    // Update confidence bars
+    updateConfidenceBars();
+    
+    // Scroll to results
+    scanResults.scrollIntoView({ behavior: 'smooth' });
+}
+{% endif %}
 
 setInterval(updateSystemClock, 1000);
 updateSystemClock();

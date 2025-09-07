@@ -122,7 +122,9 @@ def upload_file():
                     print(f"   Detected items: {', '.join(threat_names)}")
                     print(f"   Threat level: {result_data['threat_level']}\n")
                 
-                return render_template('results.html', result=result_data)
+                # Return to index with results
+                history = get_session_history()
+                return render_template('index.html', history=history, scan_result=result_data)
                 
             except Exception as e:
                 app.logger.error(f"Error processing image: {str(e)}")
