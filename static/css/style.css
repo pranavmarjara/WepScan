@@ -245,12 +245,27 @@ body {
 .status-alert { background: var(--wepscan-danger); animation: pulse-danger 1s infinite; }
 .status-warning { background: var(--wepscan-warning); }
 
-.badge-blood-red {
+.badge.badge-blood-red,
+span.badge.badge-blood-red,
+.badge-blood-red,
+.bg-info.badge-blood-red {
   background: linear-gradient(135deg, #8B0000, #DC143C) !important;
+  background-color: #8B0000 !important;
   color: white !important;
   min-width: 60px;
   padding: 0.375rem 0.75rem !important;
   font-weight: 600 !important;
+  border: none !important;
+}
+
+/* Override any Bootstrap bg-info classes that might conflict */
+.badge.bg-info {
+  background-color: var(--bs-info) !important;
+}
+
+.badge.badge-blood-red.bg-info {
+  background: linear-gradient(135deg, #8B0000, #DC143C) !important;
+  background-color: #8B0000 !important;
 }
 
 .badge {
