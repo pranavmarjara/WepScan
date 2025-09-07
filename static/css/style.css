@@ -35,7 +35,7 @@ body {
   border-radius: 15px;
   padding: 3.5rem 2.5rem;
   text-align: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: #2c2c2c;
   transition: all 0.3s ease;
   cursor: pointer;
 }
