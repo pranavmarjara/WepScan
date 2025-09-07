@@ -167,6 +167,66 @@ def clear_history():
     flash('Detection history cleared', 'success')
     return redirect(url_for('index'))
 
+@app.route('/rescan', methods=['POST'])
+def rescan():
+    """Handle rescan request for an existing image"""
+    try:
+        data = request.get_json()
+        if not data or 'filename' not in data:
+            return jsonify({'success': False, 'error': 'No filename provided'})
+        
+        filename = data['filename']
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Check if original file exists
+        if not os.path.exists(filepath):
+            return jsonify({'success': False, 'error': 'Original image not found'})
+        
+        try:
+            # Run detection again on the same image
+            detection_result = detector.detect_weapons(filepath)
+            
+            # Generate new processed image filename with timestamp
+            unique_id = str(uuid.uuid4())
+            file_extension = filename.rsplit('.', 1)[1].lower()
+            new_processed_filename = f"processed_{unique_id}.{file_extension}"
+            processed_path = os.path.join(app.config['PROCESSED_FOLDER'], new_processed_filename)
+            
+            # Draw new detections and save processed image
+            detector.draw_detections(filepath, detection_result['detections'], processed_path)
+            
+            # Prepare result data
+            result_data = {
+                'id': unique_id,
+                'original_filename': filename,
+                'processed_filename': new_processed_filename,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'),
+                'detections': detection_result['detections'],
+                'threat_level': detection_result['threat_level'],
+                'alert_triggered': detection_result['alert_triggered']
+            }
+            
+            # Add to session history
+            add_to_history(result_data)
+            
+            # Log console alert if threats detected
+            if result_data['alert_triggered']:
+                threat_items = [d for d in result_data['detections'] if d['confidence'] >= 0.5]
+                threat_names = [d['label'] for d in threat_items]
+                app.logger.warning(f"🚨 RESCAN ALERT: Weapons detected in {filename}")
+                app.logger.warning(f"   Detected items: {', '.join(threat_names)}")
+                app.logger.warning(f"   Threat level: {result_data['threat_level']}")
+            
+            return jsonify({'success': True, 'result': result_data})
+            
+        except Exception as e:
+            app.logger.error(f"Error during rescan: {str(e)}")
+            return jsonify({'success': False, 'error': f'Rescan processing failed: {str(e)}'})
+    
+    except Exception as e:
+        app.logger.error(f"Rescan request error: {str(e)}")
+        return jsonify({'success': False, 'error': f'Rescan request failed: {str(e)}'})
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     """Settings page for detection sensitivity and danger threshold"""
