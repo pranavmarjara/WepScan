@@ -868,3 +868,20 @@ footer {
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px var(--shadow-color);
 }
+
+/* Light Theme - System Status Text Contrast */
+[data-theme="light"] .card-body span {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .card-header {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .card-title {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .history-item h6 {
+  color: var(--text-primary) !important;
+}
