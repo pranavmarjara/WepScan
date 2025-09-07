@@ -118,7 +118,7 @@ def upload_file():
                     'id': unique_id,
                     'original_filename': filename,
                     'processed_filename': processed_filename,
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %I:%M:%S %p'),
                     'detections': detection_result['detections'],
                     'threat_level': detection_result['threat_level'],
                     'alert_triggered': detection_result['alert_triggered']
