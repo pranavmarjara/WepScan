@@ -24,16 +24,16 @@
 
 /* Light Theme */
 [data-theme="light"] {
-  --bg-primary: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
+  --bg-primary: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 50%, #dee2e6 100%);
   --bg-secondary: #ffffff;
-  --bg-tertiary: #f8f9fa;
+  --bg-tertiary: #f1f3f4;
   --bg-surface: #ffffff;
-  --bg-surface-dark: #f1f3f4;
+  --bg-surface-dark: #e9ecef;
   --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --border-color: #dee2e6;
-  --shadow-color: rgba(0, 0, 0, 0.1);
-  --accent-color: var(--color-info);
+  --text-secondary: #495057;
+  --border-color: #adb5bd;
+  --shadow-color: rgba(0, 0, 0, 0.15);
+  --accent-color: var(--color-danger);
 }
 
 body {
