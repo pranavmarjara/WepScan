@@ -8,7 +8,7 @@
 }
 
 body {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d3748 100%);
+  background: #191970;
   min-height: 100vh;
 }
 
@@ -186,16 +186,16 @@ body {
 .status-warning { background: var(--wepscan-warning); }
 
 .card-security {
-  background: #191970;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   backdrop-filter: blur(10px);
   padding: 1.5rem;
 }
 
 .card-security .card-header {
-  background: rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px 15px 0 0 !important;
   padding: 1.25rem 1.5rem;
 }
