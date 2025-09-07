@@ -1,6 +1,7 @@
 // WepScan Frontend JavaScript
 
 document.addEventListener('DOMContentLoaded', function() {
+    initializeThemeSystem();
     initializeUploadZone();
     initializeFileInput();
     initializeTooltips();
@@ -308,3 +309,133 @@ console.log(`
 WepScan v1.0 - AI-Powered Weapon Detection System
 Security Status: Active | Monitoring: X-Ray Scanners
 `);
+
+// Theme Management System
+let currentTheme = 'dark'; // Default theme
+
+function initializeThemeSystem() {
+    // Get saved theme from localStorage or detect system preference
+    const savedTheme = localStorage.getItem('wepscan-theme');
+    const systemTheme = getSystemTheme();
+    
+    if (savedTheme) {
+        currentTheme = savedTheme;
+    } else if (systemTheme) {
+        currentTheme = 'system';
+    }
+    
+    applyTheme(currentTheme);
+    updateThemeUI();
+    setupThemeEventListeners();
+    
+    // Listen for system theme changes
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (currentTheme === 'system') {
+                applyTheme('system');
+            }
+        });
+    }
+}
+
+function getSystemTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+    }
+    return null;
+}
+
+function applyTheme(theme) {
+    const html = document.documentElement;
+    
+    // Remove existing theme attributes
+    html.removeAttribute('data-theme');
+    
+    if (theme === 'system') {
+        // Let CSS media queries handle system theme
+        html.setAttribute('data-theme', 'system');
+    } else {
+        html.setAttribute('data-theme', theme);
+    }
+    
+    currentTheme = theme;
+    
+    // Save to localStorage
+    localStorage.setItem('wepscan-theme', theme);
+    
+    // Update theme icon
+    updateThemeIcon(theme);
+    
+    console.log(`Theme changed to: ${theme}`);
+}
+
+function updateThemeIcon(theme) {
+    const themeIcon = document.getElementById('themeIcon');
+    if (!themeIcon) return;
+    
+    const iconMap = {
+        'dark': 'fas fa-moon',
+        'light': 'fas fa-sun',
+        'system': 'fas fa-desktop'
+    };
+    
+    themeIcon.className = iconMap[theme] || 'fas fa-moon';
+}
+
+function updateThemeUI() {
+    const themeOptions = document.querySelectorAll('.theme-option');
+    themeOptions.forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.theme === currentTheme) {
+            option.classList.add('active');
+        }
+    });
+    
+    updateThemeIcon(currentTheme);
+}
+
+function setupThemeEventListeners() {
+    const themeOptions = document.querySelectorAll('.theme-option');
+    themeOptions.forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            const selectedTheme = this.dataset.theme;
+            
+            if (selectedTheme !== currentTheme) {
+                applyTheme(selectedTheme);
+                updateThemeUI();
+                
+                // Show feedback
+                showAlert(`Theme changed to ${selectedTheme.charAt(0).toUpperCase() + selectedTheme.slice(1)}`, 'success');
+            }
+        });
+    });
+}
+
+function toggleTheme() {
+    const themes = ['dark', 'light', 'system'];
+    const currentIndex = themes.indexOf(currentTheme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    const nextTheme = themes[nextIndex];
+    
+    applyTheme(nextTheme);
+    updateThemeUI();
+}
+
+// Add keyboard shortcut for theme toggle (Ctrl/Cmd + Shift + T)
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        toggleTheme();
+    }
+});
+
+// Export theme functions for potential external use
+window.WepScanTheme = {
+    toggle: toggleTheme,
+    apply: applyTheme,
+    current: () => currentTheme,
+    getSystem: getSystemTheme
+};
