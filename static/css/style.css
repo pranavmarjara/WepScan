@@ -123,9 +123,10 @@ body {
 }
 
 .threat-high {
-  background: linear-gradient(135deg, var(--color-warning), #ff9500);
+  background: linear-gradient(135deg, #8B0000, #DC143C);
   color: white;
   font-weight: bold;
+  padding: 0.5rem 2.5rem;
 }
 
 .threat-medium {
