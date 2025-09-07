@@ -81,6 +81,15 @@
                             <span>History</span>
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a
+                            class="nav-link {{ 'active' if request.endpoint == 'settings' else '' }}"
+                            href="{{ url_for('settings') }}"
+                        >
+                            <i class="fas fa-cog me-2"></i>
+                            <span>⚙️ Settings</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
