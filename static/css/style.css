@@ -245,6 +245,18 @@ body {
 .status-alert { background: var(--wepscan-danger); animation: pulse-danger 1s infinite; }
 .status-warning { background: var(--wepscan-warning); }
 
+.badge-blood-red {
+  background: linear-gradient(135deg, #8B0000, #DC143C) !important;
+  color: white !important;
+  min-width: 60px;
+  padding: 0.375rem 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+.badge {
+  min-width: 60px;
+}
+
 .card-security {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
