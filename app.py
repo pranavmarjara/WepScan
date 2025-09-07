@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime
 import uuid
 from detect import WepScanDetector
+from models import db, Settings
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,6 +16,17 @@ logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "wepscan_secret_key_2024")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+}
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize database
+db.init_app(app)
 
 # Configuration
 UPLOAD_FOLDER = 'static/uploads'
@@ -32,6 +44,10 @@ os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
 # Initialize detector
 detector = WepScanDetector()
+
+# Create database tables
+with app.app_context():
+    db.create_all()
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -150,6 +166,28 @@ def clear_history():
     session['detection_history'] = []
     flash('Detection history cleared', 'success')
     return redirect(url_for('index'))
+
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    """Settings page for detection sensitivity and danger threshold"""
+    if request.method == 'POST':
+        try:
+            detection_sensitivity = request.form.get('detection_sensitivity', 75)
+            danger_threshold = request.form.get('danger_threshold', 60)
+            
+            current_settings = Settings.get_current_settings()
+            current_settings.update_settings(detection_sensitivity, danger_threshold)
+            
+            flash('Settings saved successfully!', 'success')
+            return redirect(url_for('settings'))
+            
+        except Exception as e:
+            app.logger.error(f"Error saving settings: {str(e)}")
+            flash('Error saving settings. Please try again.', 'error')
+    
+    # GET request - show settings form
+    current_settings = Settings.get_current_settings()
+    return render_template('settings.html', settings=current_settings)
 
 @app.errorhandler(413)
 def too_large(e):

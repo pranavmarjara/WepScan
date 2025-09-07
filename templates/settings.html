@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - WepScan{% endblock %}
+
+{% block extra_head %}
+<!-- DaisyUI CSS -->
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="mb-4">
+                <h1 class="h2 text-primary">
+                    <i class="fas fa-cog me-3"></i>Settings
+                </h1>
+                <p class="text-muted">Configure detection parameters for optimal security scanning performance.</p>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Settings Form -->
+            <div class="card shadow-lg">
+                <div class="card-body p-6">
+                    <form method="POST" id="settingsForm">
+                        
+                        <!-- Detection Sensitivity Slider -->
+                        <div class="form-group mb-6">
+                            <label class="form-label text-lg font-semibold mb-3 d-block">
+                                <i class="fas fa-search me-2 text-primary"></i>
+                                Detection Sensitivity
+                                <span class="badge bg-primary ms-2" id="sensitivity-value">{{ settings.detection_sensitivity }}%</span>
+                            </label>
+                            <p class="text-muted mb-4">
+                                Controls how sensitive the AI detection algorithm is to potential threats. Higher values detect more objects but may increase false positives.
+                            </p>
+                            
+                            <!-- DaisyUI Range Slider -->
+                            <div class="w-full px-3">
+                                <input 
+                                    type="range" 
+                                    name="detection_sensitivity"
+                                    id="detection_sensitivity"
+                                    min="0" 
+                                    max="100" 
+                                    value="{{ settings.detection_sensitivity }}" 
+                                    class="range range-primary range-lg w-full"
+                                    oninput="updateSliderValue('sensitivity', this.value)"
+                                />
+                                <div class="flex w-full justify-between px-2 text-xs opacity-60 mt-2">
+                                    <span>0%</span>
+                                    <span>25%</span>
+                                    <span>50%</span>
+                                    <span>75%</span>
+                                    <span>100%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="divider my-6"></div>
+
+                        <!-- Danger Threshold Slider -->
+                        <div class="form-group mb-6">
+                            <label class="form-label text-lg font-semibold mb-3 d-block">
+                                <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                                Danger Threshold
+                                <span class="badge bg-warning text-dark ms-2" id="threshold-value">{{ settings.danger_threshold }}%</span>
+                            </label>
+                            <p class="text-muted mb-4">
+                                Sets the confidence level required to trigger security alerts. Lower values are more cautious and will alert on lower-confidence detections.
+                            </p>
+                            
+                            <!-- DaisyUI Range Slider -->
+                            <div class="w-full px-3">
+                                <input 
+                                    type="range" 
+                                    name="danger_threshold"
+                                    id="danger_threshold"
+                                    min="0" 
+                                    max="100" 
+                                    value="{{ settings.danger_threshold }}" 
+                                    class="range range-warning range-lg w-full"
+                                    oninput="updateSliderValue('threshold', this.value)"
+                                />
+                                <div class="flex w-full justify-between px-2 text-xs opacity-60 mt-2">
+                                    <span>0%</span>
+                                    <span>25%</span>
+                                    <span>50%</span>
+                                    <span>75%</span>
+                                    <span>100%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="divider my-6"></div>
+
+                        <!-- Current Settings Summary -->
+                        <div class="bg-base-200 rounded-lg p-4 mb-6">
+                            <h6 class="font-semibold mb-3">
+                                <i class="fas fa-info-circle me-2 text-info"></i>
+                                Current Configuration
+                            </h6>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="stat">
+                                    <div class="stat-title">Detection Sensitivity</div>
+                                    <div class="stat-value text-primary" id="current-sensitivity">{{ settings.detection_sensitivity }}%</div>
+                                    <div class="stat-desc">AI detection threshold</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-title">Danger Threshold</div>
+                                    <div class="stat-value text-warning" id="current-threshold">{{ settings.danger_threshold }}%</div>
+                                    <div class="stat-desc">Alert trigger level</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save Button -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg px-8">
+                                <i class="fas fa-save me-2"></i>
+                                Save Settings
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn btn-outline ms-3">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Back to Scanner
+                            </a>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+            <!-- Last Updated -->
+            {% if settings.updated_at %}
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Last updated: {{ settings.updated_at.strftime('%Y-%m-%d at %H:%M:%S') }}
+                </small>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<script>
+// Update slider values dynamically
+function updateSliderValue(type, value) {
+    if (type === 'sensitivity') {
+        document.getElementById('sensitivity-value').textContent = value + '%';
+        document.getElementById('current-sensitivity').textContent = value + '%';
+    } else if (type === 'threshold') {
+        document.getElementById('threshold-value').textContent = value + '%';
+        document.getElementById('current-threshold').textContent = value + '%';
+    }
+}
+
+// Initialize slider interactions
+document.addEventListener('DOMContentLoaded', function() {
+    const sensitivitySlider = document.getElementById('detection_sensitivity');
+    const thresholdSlider = document.getElementById('danger_threshold');
+    
+    // Add visual feedback for sliders
+    sensitivitySlider.addEventListener('input', function() {
+        this.style.background = `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${this.value}%, #e5e7eb ${this.value}%, #e5e7eb 100%)`;
+    });
+    
+    thresholdSlider.addEventListener('input', function() {
+        this.style.background = `linear-gradient(to right, #f59e0b 0%, #f59e0b ${this.value}%, #e5e7eb ${this.value}%, #e5e7eb 100%)`;
+    });
+    
+    // Initialize slider backgrounds
+    sensitivitySlider.dispatchEvent(new Event('input'));
+    thresholdSlider.dispatchEvent(new Event('input'));
+});
+</script>
+{% endblock %}
