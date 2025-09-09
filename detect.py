@@ -218,15 +218,18 @@ class WepScanDetector:
             # X-ray specific density analysis
             xray_features = self._xray_density_analysis(gray)
             
+            # Enhanced metallic detection (NEW)
+            enhanced_metallic = self._enhanced_metallic_detection(gray)
+            
             # Geometric invariant analysis
             geometric_features = self._geometric_invariant_analysis(contours_fine)
             
             # Neural network feature extraction
             neural_features = self._extract_neural_features(gray, height, width)
             
-            # Advanced ensemble voting system
+            # Advanced ensemble voting system with enhanced metallic detection
             ensemble_results = self._advanced_ensemble_weapon_detection(
-                template_scores, shape_analysis, xray_features, geometric_features, neural_features
+                template_scores, shape_analysis, xray_features, geometric_features, neural_features, enhanced_metallic
             )
             
             # Combine all analysis results
@@ -248,6 +251,10 @@ class WepScanDetector:
                 'ensemble_confidence': ensemble_results['confidence'],
                 'detection_consensus': ensemble_results['consensus_count'],
                 'weapon_locations': ensemble_results['weapon_locations'],
+                
+                # Enhanced metallic detection results
+                'metallic_weapon_confidence': enhanced_metallic['metallic_weapon_confidence'],
+                'metallic_weapon_shapes': enhanced_metallic['weapon_shapes'],
                 
                 # Legacy compatibility
                 'gun_shapes_detected': len(ensemble_results['weapon_locations']),
@@ -329,15 +336,22 @@ class WepScanDetector:
                 if scaled_template.shape[0] >= gray.shape[0] or scaled_template.shape[1] >= gray.shape[1]:
                     continue
                 
-                # Template matching
-                result = cv2.matchTemplate(gray, scaled_template, cv2.TM_CCOEFF_NORMED)
-                _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                # Enhanced template matching with multiple methods
+                methods = [cv2.TM_CCOEFF_NORMED, cv2.TM_CCORR_NORMED]
                 
-                if max_val > best_score:
-                    best_score = max_val
-                    best_location = max_loc
-                    # High threshold for weapon detection
-                    weapon_detected = max_val > 0.6
+                for method in methods:
+                    result = cv2.matchTemplate(gray, scaled_template, method)
+                    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                    
+                    # Boost score for multiple method agreement
+                    if method == cv2.TM_CCORR_NORMED:
+                        max_val *= 0.8  # Slight discount for correlation method
+                    
+                    if max_val > best_score:
+                        best_score = max_val
+                        best_location = max_loc
+                        # MORE SENSITIVE threshold for weapon detection
+                        weapon_detected = max_val > 0.4  # Reduced from 0.6
         
         return {
             'max_score': float(best_score),
@@ -346,24 +360,60 @@ class WepScanDetector:
         }
     
     def _create_weapon_templates(self) -> Dict:
-        """Create simple weapon templates for matching."""
+        """Create comprehensive weapon templates optimized for X-ray detection."""
         templates = {}
         
-        # Pistol template (simplified L-shape)
-        pistol = np.zeros((40, 60), dtype=np.uint8)
-        # Barrel
-        pistol[15:25, 0:45] = 255
-        # Grip
-        pistol[25:40, 30:40] = 255
-        # Trigger area
-        pistol[20:30, 25:35] = 0
+        # Enhanced Pistol template (realistic L-shape for X-ray)
+        pistol = np.zeros((50, 70), dtype=np.uint8)
+        # Main barrel (horizontal)
+        pistol[20:30, 0:50] = 255
+        # Grip (vertical)
+        pistol[30:50, 35:45] = 255
+        # Trigger guard (curved)
+        pistol[25:35, 30:40] = 128
+        # Trigger area cutout
+        pistol[27:32, 32:37] = 0
         templates['pistol'] = pistol
         
-        # Rifle template (long rectangular shape)
-        rifle = np.zeros((20, 80), dtype=np.uint8)
-        rifle[5:15, 0:75] = 255
-        rifle[8:12, 60:80] = 255  # Stock
+        # Enhanced Rifle template (assault rifle profile)
+        rifle = np.zeros((30, 100), dtype=np.uint8)
+        # Main barrel
+        rifle[10:20, 0:80] = 255
+        # Stock
+        rifle[12:18, 70:100] = 255
+        # Magazine
+        rifle[20:30, 40:50] = 200
+        # Trigger area
+        rifle[15:25, 35:45] = 150
         templates['rifle'] = rifle
+        
+        # SMG/Carbine template (compact weapon)
+        smg = np.zeros((35, 60), dtype=np.uint8)
+        # Barrel
+        smg[15:25, 0:45] = 255
+        # Stock/grip
+        smg[25:35, 30:40] = 255
+        # Magazine
+        smg[25:35, 20:30] = 200
+        templates['smg'] = smg
+        
+        # Knife template (elongated sharp object)
+        knife = np.zeros((15, 80), dtype=np.uint8)
+        # Blade (tapered)
+        for i in range(80):
+            width = max(1, int(8 * (1 - i/80)))
+            start = 7 - width//2
+            end = 7 + width//2
+            knife[start:end+1, i] = 255
+        templates['knife'] = knife
+        
+        # Generic weapon template (mixed features)
+        generic = np.zeros((40, 80), dtype=np.uint8)
+        # Main body
+        generic[15:25, 10:70] = 255
+        # Handle/grip area
+        generic[25:35, 45:55] = 200
+        templates['generic_weapon'] = generic
         
         return templates
     
@@ -462,6 +512,90 @@ class WepScanDetector:
         
         return {
             'metal_confidence': min(1.0, metal_confidence)
+        }
+    
+    def _enhanced_metallic_detection(self, gray: np.ndarray) -> Dict:
+        """
+        Enhanced metallic object detection optimized for X-ray weapon signatures.
+        
+        Args:
+            gray (np.ndarray): Grayscale image
+            
+        Returns:
+            Dict: Enhanced metallic detection results
+        """
+        # X-ray images: bright = dense/metallic, dark = less dense
+        height, width = gray.shape
+        
+        # Multi-threshold analysis for different metal densities
+        high_metal_threshold = np.percentile(gray, 92)  # Very bright = heavy metals
+        medium_metal_threshold = np.percentile(gray, 85)  # Moderately bright = lighter metals
+        
+        # Create masks for different metal densities
+        high_metal_mask = gray > high_metal_threshold
+        medium_metal_mask = (gray > medium_metal_threshold) & (gray <= high_metal_threshold)
+        
+        # Connected component analysis for weapon-shaped metallic objects
+        high_metal_labels, high_metal_count = cv2.connectedComponents(high_metal_mask.astype(np.uint8))
+        medium_metal_labels, medium_metal_count = cv2.connectedComponents(medium_metal_mask.astype(np.uint8))
+        
+        weapon_confidence = 0.0
+        weapon_shapes = []
+        
+        # Analyze high-density metallic objects (gun barrels, blades)
+        for i in range(1, high_metal_count):  # Skip background
+            component_mask = (high_metal_labels == i)
+            component_area = np.sum(component_mask)
+            
+            if component_area > 500:  # Significant metallic object
+                # Get bounding box and analyze shape
+                y_coords, x_coords = np.where(component_mask)
+                x_min, x_max = np.min(x_coords), np.max(x_coords)
+                y_min, y_max = np.min(y_coords), np.max(y_coords)
+                
+                width_obj = x_max - x_min
+                height_obj = y_max - y_min
+                aspect_ratio = width_obj / max(height_obj, 1)
+                
+                # Check for weapon-like characteristics
+                weapon_score = 0.0
+                
+                # Elongated objects (gun barrels, knives)
+                if aspect_ratio > 2.0 and component_area > 1000:
+                    weapon_score += 0.6
+                    
+                # Gun-like aspect ratios
+                if 1.5 <= aspect_ratio <= 3.0 and component_area > 1500:
+                    weapon_score += 0.4
+                    
+                # Large metallic objects (likely weapons)
+                if component_area > 2500:
+                    weapon_score += 0.3
+                    
+                # Check density uniformity (weapons have consistent metal density)
+                component_pixels = gray[component_mask]
+                density_std = np.std(component_pixels)
+                if density_std < 15:  # Very uniform = manufactured object
+                    weapon_score += 0.2
+                
+                if weapon_score > 0.4:
+                    weapon_confidence = max(weapon_confidence, weapon_score)
+                    weapon_shapes.append({
+                        'bbox': [x_min, y_min, x_max, y_max],
+                        'area': component_area,
+                        'aspect_ratio': aspect_ratio,
+                        'confidence': weapon_score
+                    })
+        
+        # Boost confidence if multiple weapon-like objects detected
+        if len(weapon_shapes) > 1:
+            weapon_confidence = min(1.0, weapon_confidence * 1.3)
+        
+        return {
+            'metallic_weapon_confidence': weapon_confidence,
+            'weapon_shapes': weapon_shapes,
+            'high_density_objects': high_metal_count - 1,
+            'medium_density_objects': medium_metal_count - 1
         }
     
     def _geometric_invariant_analysis(self, contours: List) -> Dict:
@@ -691,7 +825,7 @@ class WepScanDetector:
     
     def _advanced_ensemble_weapon_detection(self, template_scores: Dict, shape_analysis: Dict, 
                                           xray_features: Dict, geometric_features: Dict, 
-                                          neural_features: Dict) -> Dict:
+                                          neural_features: Dict, enhanced_metallic: Dict) -> Dict:
         """
         Advanced ensemble system with neural network integration and uncertainty quantification.
         
@@ -701,6 +835,7 @@ class WepScanDetector:
             xray_features (Dict): X-ray density analysis
             geometric_features (Dict): Geometric analysis
             neural_features (Dict): Neural network features
+            enhanced_metallic (Dict): Enhanced metallic detection results
             
         Returns:
             Dict: Advanced ensemble detection results
@@ -754,13 +889,29 @@ class WepScanDetector:
             weighted_votes.append(self.ensemble_weights['neural_features'] * final_neural_confidence)
             uncertainty_scores.append(1.0 - final_neural_confidence)
         
+        # Enhanced metallic detection vote (weight: 10%) - CRITICAL FOR OBVIOUS WEAPONS
+        metallic_confidence = enhanced_metallic['metallic_weapon_confidence']
+        if metallic_confidence > 0.3:
+            weighted_votes.append(0.1 * metallic_confidence)
+            uncertainty_scores.append(1.0 - metallic_confidence)
+            
+            # Add weapon locations from metallic detection
+            for weapon_shape in enhanced_metallic['weapon_shapes']:
+                weapon_locations.append({
+                    'bbox': weapon_shape['bbox'],
+                    'confidence_boost': weapon_shape['confidence'] * 0.2,
+                    'area': weapon_shape['area'],
+                    'aspect_ratio': weapon_shape['aspect_ratio'],
+                    'method': 'enhanced_metallic'
+                })
+        
         # Advanced ensemble calculation
         total_weighted_vote = sum(weighted_votes)
         consensus_count = len(weighted_votes)
         
         # Calculate uncertainty (epistemic + aleatoric)
         average_uncertainty = np.mean(uncertainty_scores) if uncertainty_scores else 1.0
-        consensus_uncertainty = 1.0 - (consensus_count / 5.0)  # 5 total algorithms
+        consensus_uncertainty = 1.0 - (consensus_count / 6.0)  # 6 total algorithms now
         total_uncertainty = (average_uncertainty + consensus_uncertainty) / 2.0
         
         # Calibrated confidence with uncertainty
@@ -781,6 +932,14 @@ class WepScanDetector:
             
             weapon_probability = min(1.0, calibrated_confidence)
             confidence = weapon_probability
+        
+        # EMERGENCY FALLBACK: Very obvious weapon detection for critical cases
+        emergency_detection = self._emergency_weapon_fallback(enhanced_metallic, template_scores)
+        if emergency_detection['force_detection']:
+            weapon_probability = max(weapon_probability, emergency_detection['confidence'])
+            confidence = weapon_probability
+            if emergency_detection['weapon_locations']:
+                weapon_locations.extend(emergency_detection['weapon_locations'])
         
         return {
             'weapon_probability': weapon_probability,
@@ -847,6 +1006,75 @@ class WepScanDetector:
         except Exception:
             # Fallback calibration
             return raw_confidence * (1.0 - uncertainty * 0.3)
+    
+    def _emergency_weapon_fallback(self, enhanced_metallic: Dict, template_scores: Dict) -> Dict:
+        """
+        Emergency fallback detection for very obvious weapons that might be missed.
+        This is a safety net for critical security failures.
+        
+        Args:
+            enhanced_metallic (Dict): Enhanced metallic detection results
+            template_scores (Dict): Template matching results
+            
+        Returns:
+            Dict: Emergency detection results
+        """
+        force_detection = False
+        confidence = 0.0
+        weapon_locations = []
+        
+        # Check for extremely obvious metallic weapon signatures
+        metallic_confidence = enhanced_metallic['metallic_weapon_confidence']
+        template_confidence = template_scores['max_score']
+        
+        # CRITICAL: Multiple large metallic objects with weapon-like shapes
+        if metallic_confidence > 0.6 and len(enhanced_metallic['weapon_shapes']) >= 2:
+            force_detection = True
+            confidence = 0.8
+            # Use metallic detection locations
+            for shape in enhanced_metallic['weapon_shapes']:
+                weapon_locations.append({
+                    'bbox': shape['bbox'],
+                    'confidence_boost': 0.3,
+                    'area': shape['area'],
+                    'aspect_ratio': shape['aspect_ratio'],
+                    'method': 'emergency_fallback'
+                })
+        
+        # CRITICAL: High template matching score (clear weapon silhouette)
+        elif template_confidence > 0.7:
+            force_detection = True
+            confidence = 0.75
+            if template_scores['best_location']:
+                weapon_locations.append({
+                    'bbox': [template_scores['best_location'][0], template_scores['best_location'][1],
+                            template_scores['best_location'][0] + 60, template_scores['best_location'][1] + 40],
+                    'confidence_boost': 0.3,
+                    'area': 2400,
+                    'aspect_ratio': 1.5,
+                    'method': 'emergency_template'
+                })
+        
+        # CRITICAL: Large single metallic object with perfect weapon characteristics
+        elif metallic_confidence > 0.7:
+            for shape in enhanced_metallic['weapon_shapes']:
+                if shape['area'] > 3000 and shape['aspect_ratio'] > 2.0:
+                    force_detection = True
+                    confidence = 0.7
+                    weapon_locations.append({
+                        'bbox': shape['bbox'],
+                        'confidence_boost': 0.25,
+                        'area': shape['area'],
+                        'aspect_ratio': shape['aspect_ratio'],
+                        'method': 'emergency_large_weapon'
+                    })
+                    break
+        
+        return {
+            'force_detection': force_detection,
+            'confidence': confidence,
+            'weapon_locations': weapon_locations
+        }
 
     def _detect_weapon_shapes(self, contours: List, gray: np.ndarray) -> Dict:
         """
