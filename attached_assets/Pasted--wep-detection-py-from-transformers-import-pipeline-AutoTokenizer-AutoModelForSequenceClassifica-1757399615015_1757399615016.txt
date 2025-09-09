@@ -1,0 +1,78 @@
+# wep_detection.py
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
+import torch
+import math
+
+# ---- MODEL NAMES (change if you prefer another HF model) ----
+DETECTOR_MODEL = "fakespot-ai/roberta-base-ai-text-detection-v1"   # HF roberta detector
+PERPLEXITY_MODEL = "gpt2"   # small GPT-2 to compute perplexity (lightweight)
+
+# ---- load models (do this once at start) ----
+device = 0 if torch.cuda.is_available() else -1
+
+# Detector pipeline (classification)
+detector_tokenizer = AutoTokenizer.from_pretrained(DETECTOR_MODEL)
+detector_model = AutoModelForSequenceClassification.from_pretrained(DETECTOR_MODEL)
+detector_pipe = pipeline("text-classification", model=detector_model, tokenizer=detector_tokenizer, device=device, return_all_scores=True)
+
+# Perplexity model (causal LM)
+ppl_tokenizer = AutoTokenizer.from_pretrained(PERPLEXITY_MODEL)
+ppl_model = AutoModelForCausalLM.from_pretrained(PERPLEXITY_MODEL)
+ppl_model.eval()
+if torch.cuda.is_available():
+    ppl_model.to("cuda")
+
+def compute_perplexity(text):
+    enc = ppl_tokenizer(text, return_tensors="pt")
+    if torch.cuda.is_available():
+        enc = {k: v.to("cuda") for k, v in enc.items()}
+    with torch.no_grad():
+        outputs = ppl_model(**enc, labels=enc["input_ids"])
+        # loss is average negative log likelihood
+        loss = outputs.loss.item()
+    ppl = math.exp(loss)
+    return ppl
+
+def detect_ai(text):
+    """
+    Returns a dict:
+    {
+      'detector': { 'label_probs': [...], 'ai_probability': float },
+      'perplexity': float,
+      'ensemble_score': float  # 0..1 where higher ~= more likely AI
+    }
+    """
+    # run classifier
+    cls = detector_pipe(text[:2000])  # limit length for speed
+    # cls is list of lists; pick highest AI score if labels present
+    # expected labels might be e.g. "AI-generated" / "Human-written"
+    # normalize:
+    scores = {}
+    for item in cls[0]:
+        scores[item['label']] = item['score']
+    # heuristics for label names:
+    ai_prob = None
+    # common labels to check
+    for key in scores:
+        k = key.lower()
+        if "ai" in k or "generated" in k or "synthetic" in k:
+            ai_prob = scores[key]
+    if ai_prob is None:
+        # fallback: take max score assuming index 0 is AI
+        ai_prob = cls[0][0]['score']
+
+    # perplexity
+    ppl = compute_perplexity(text[:1024])
+    # normalize perplexity to 0..1 roughly (heuristic):
+    # typical GPT-2 ppl on human text ~10-100; we map higher ppl -> less likely AI (example heuristic)
+    # This is domain dependent — adjust thresholds after testing on your data.
+    norm_ppl = 1.0 / (1.0 + math.log1p(ppl))
+
+    # ensemble: weight classifier more, perplexity less
+    ensemble = 0.75 * ai_prob + 0.25 * (1 - norm_ppl)  # higher => more likely AI
+
+    return {
+        "detector": {"label_probs": scores, "ai_probability": float(ai_prob)},
+        "perplexity": float(ppl),
+        "ensemble_score": float(ensemble)
+    }
