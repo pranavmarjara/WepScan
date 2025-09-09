@@ -710,9 +710,9 @@ class WepScanDetector:
         weapon_locations = []
         uncertainty_scores = []
         
-        # Template matching vote (weight: 20%)
+        # Template matching vote (weight: 20%) - MORE SENSITIVE
         template_confidence = template_scores['max_score']
-        if template_scores['weapon_detected'] and template_confidence > 0.6:
+        if template_scores['weapon_detected'] and template_confidence > 0.4:
             weighted_votes.append(self.ensemble_weights['template_matching'] * template_confidence)
             uncertainty_scores.append(1.0 - template_confidence)
             
@@ -726,21 +726,21 @@ class WepScanDetector:
                     'method': 'template_matching'
                 })
         
-        # Shape analysis vote (weight: 20%)
+        # Shape analysis vote (weight: 20%) - MORE SENSITIVE
         shape_confidence = shape_analysis['weapon_score']
-        if shape_confidence > 0.7:
+        if shape_confidence > 0.5:
             weighted_votes.append(self.ensemble_weights['shape_analysis'] * shape_confidence)
             uncertainty_scores.append(1.0 - shape_confidence)
         
-        # X-ray density vote (weight: 15%)
+        # X-ray density vote (weight: 15%) - MORE SENSITIVE
         xray_confidence = xray_features['metal_confidence']
-        if xray_confidence > 0.6:
+        if xray_confidence > 0.4:
             weighted_votes.append(self.ensemble_weights['xray_density'] * xray_confidence)
             uncertainty_scores.append(1.0 - xray_confidence)
         
-        # Geometric analysis vote (weight: 15%)
+        # Geometric analysis vote (weight: 15%) - MORE SENSITIVE
         geometric_confidence = geometric_features['weapon_probability']
-        if geometric_confidence > 0.5:
+        if geometric_confidence > 0.3:
             weighted_votes.append(self.ensemble_weights['geometric_features'] * geometric_confidence)
             uncertainty_scores.append(1.0 - geometric_confidence)
         
@@ -770,10 +770,10 @@ class WepScanDetector:
         weapon_probability = 0.0
         confidence = 0.0
         
-        # Require stronger consensus and lower uncertainty for detection
-        min_consensus = 3  # Need at least 3 algorithms agreeing
-        min_weighted_score = 0.4  # Minimum weighted score
-        max_uncertainty = 0.6  # Maximum allowed uncertainty
+        # More sensitive requirements for weapon detection
+        min_consensus = 2  # Need at least 2 algorithms agreeing (reduced from 3)
+        min_weighted_score = 0.25  # Minimum weighted score (reduced for sensitivity)
+        max_uncertainty = 0.8  # Maximum allowed uncertainty (increased tolerance)
         
         if (consensus_count >= min_consensus and 
             total_weighted_vote >= min_weighted_score and 
