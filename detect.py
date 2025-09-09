@@ -221,9 +221,12 @@ class WepScanDetector:
             # Geometric invariant analysis
             geometric_features = self._geometric_invariant_analysis(contours_fine)
             
-            # Ensemble voting system
-            ensemble_results = self._ensemble_weapon_detection(
-                template_scores, shape_analysis, xray_features, geometric_features
+            # Neural network feature extraction
+            neural_features = self._extract_neural_features(gray, height, width)
+            
+            # Advanced ensemble voting system
+            ensemble_results = self._advanced_ensemble_weapon_detection(
+                template_scores, shape_analysis, xray_features, geometric_features, neural_features
             )
             
             # Combine all analysis results
@@ -573,6 +576,277 @@ class WepScanDetector:
             'consensus_count': consensus_count,
             'weapon_locations': weapon_locations if weapon_probability > 0.6 else []
         }
+    
+    def _extract_neural_features(self, gray: np.ndarray, height: int, width: int) -> Dict:
+        """
+        Extract advanced features using neural networks for enhanced weapon detection.
+        
+        Args:
+            gray (np.ndarray): Grayscale image
+            height (int): Image height
+            width (int): Image width
+            
+        Returns:
+            Dict: Neural network extracted features
+        """
+        try:
+            if self.feature_extractor is None:
+                return {'neural_confidence': 0.0, 'features': np.zeros(8)}
+            
+            # Prepare image for neural network
+            image_rgb = cv2.cvtColor(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
+            image_tensor = self.transform(image_rgb).unsqueeze(0)
+            
+            # Extract statistical features from image for neural input
+            features = self._extract_statistical_features(gray)
+            feature_tensor = torch.FloatTensor(features).unsqueeze(0)
+            
+            # Run through neural network
+            with torch.no_grad():
+                neural_output = self.feature_extractor(feature_tensor)
+                neural_features = neural_output.squeeze().numpy()
+            
+            # Calculate neural confidence based on feature activation
+            neural_confidence = float(np.mean(neural_features))
+            
+            return {
+                'neural_confidence': neural_confidence,
+                'features': neural_features,
+                'weapon_indicators': self._analyze_neural_outputs(neural_features)
+            }
+            
+        except Exception as e:
+            return {
+                'neural_confidence': 0.0,
+                'features': np.zeros(8),
+                'weapon_indicators': {}
+            }
+    
+    def _extract_statistical_features(self, gray: np.ndarray) -> np.ndarray:
+        """Extract 64-dimensional statistical features from image"""
+        features = []
+        
+        # Basic statistics
+        features.extend([
+            np.mean(gray), np.std(gray), np.min(gray), np.max(gray),
+            np.percentile(gray, 25), np.percentile(gray, 75)
+        ])
+        
+        # Texture features using LBP-like patterns
+        kernel_3x3 = np.ones((3,3), np.uint8)
+        kernel_5x5 = np.ones((5,5), np.uint8)
+        
+        # Morphological operations
+        opening = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel_3x3)
+        closing = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel_3x3)
+        gradient = cv2.morphologyEx(gray, cv2.MORPH_GRADIENT, kernel_3x3)
+        
+        features.extend([
+            np.mean(opening), np.std(opening),
+            np.mean(closing), np.std(closing),
+            np.mean(gradient), np.std(gradient)
+        ])
+        
+        # Edge features
+        edges = cv2.Canny(gray, 50, 150)
+        features.extend([
+            np.sum(edges > 0) / edges.size,
+            np.mean(edges), np.std(edges)
+        ])
+        
+        # Frequency domain features
+        f_transform = np.fft.fft2(gray)
+        f_shift = np.fft.fftshift(f_transform)
+        magnitude_spectrum = np.log(np.abs(f_shift) + 1)
+        
+        features.extend([
+            np.mean(magnitude_spectrum), np.std(magnitude_spectrum),
+            np.percentile(magnitude_spectrum, 90)
+        ])
+        
+        # Pad to 64 features
+        while len(features) < 64:
+            features.append(0.0)
+        
+        return np.array(features[:64], dtype=np.float32)
+    
+    def _analyze_neural_outputs(self, neural_features: np.ndarray) -> Dict:
+        """Analyze neural network outputs for weapon indicators"""
+        indicators = {}
+        
+        # Interpret neural features (each element represents different weapon aspects)
+        feature_names = [
+            'shape_complexity', 'metallic_signature', 'trigger_pattern',
+            'barrel_pattern', 'size_indicator', 'density_pattern',
+            'edge_sharpness', 'overall_threat'
+        ]
+        
+        for i, feature_name in enumerate(feature_names):
+            if i < len(neural_features):
+                indicators[feature_name] = float(neural_features[i])
+            else:
+                indicators[feature_name] = 0.0
+                
+        return indicators
+    
+    def _advanced_ensemble_weapon_detection(self, template_scores: Dict, shape_analysis: Dict, 
+                                          xray_features: Dict, geometric_features: Dict, 
+                                          neural_features: Dict) -> Dict:
+        """
+        Advanced ensemble system with neural network integration and uncertainty quantification.
+        
+        Args:
+            template_scores (Dict): Template matching results
+            shape_analysis (Dict): Shape analysis results  
+            xray_features (Dict): X-ray density analysis
+            geometric_features (Dict): Geometric analysis
+            neural_features (Dict): Neural network features
+            
+        Returns:
+            Dict: Advanced ensemble detection results
+        """
+        # Enhanced voting with neural network integration
+        weighted_votes = []
+        weapon_locations = []
+        uncertainty_scores = []
+        
+        # Template matching vote (weight: 20%)
+        template_confidence = template_scores['max_score']
+        if template_scores['weapon_detected'] and template_confidence > 0.6:
+            weighted_votes.append(self.ensemble_weights['template_matching'] * template_confidence)
+            uncertainty_scores.append(1.0 - template_confidence)
+            
+            if template_scores['best_location']:
+                weapon_locations.append({
+                    'bbox': [template_scores['best_location'][0], template_scores['best_location'][1],
+                            template_scores['best_location'][0] + 60, template_scores['best_location'][1] + 40],
+                    'confidence_boost': template_confidence * 0.3,
+                    'area': 2400,
+                    'aspect_ratio': 1.5,
+                    'method': 'template_matching'
+                })
+        
+        # Shape analysis vote (weight: 20%)
+        shape_confidence = shape_analysis['weapon_score']
+        if shape_confidence > 0.7:
+            weighted_votes.append(self.ensemble_weights['shape_analysis'] * shape_confidence)
+            uncertainty_scores.append(1.0 - shape_confidence)
+        
+        # X-ray density vote (weight: 15%)
+        xray_confidence = xray_features['metal_confidence']
+        if xray_confidence > 0.6:
+            weighted_votes.append(self.ensemble_weights['xray_density'] * xray_confidence)
+            uncertainty_scores.append(1.0 - xray_confidence)
+        
+        # Geometric analysis vote (weight: 15%)
+        geometric_confidence = geometric_features['weapon_probability']
+        if geometric_confidence > 0.5:
+            weighted_votes.append(self.ensemble_weights['geometric_features'] * geometric_confidence)
+            uncertainty_scores.append(1.0 - geometric_confidence)
+        
+        # Neural network vote (weight: 25%) - NEW ENHANCED FEATURE
+        neural_confidence = neural_features['neural_confidence']
+        if neural_confidence > 0.4:
+            # Apply advanced neural analysis
+            neural_boost = self._calculate_neural_boost(neural_features['weapon_indicators'])
+            final_neural_confidence = neural_confidence * (1.0 + neural_boost)
+            
+            weighted_votes.append(self.ensemble_weights['neural_features'] * final_neural_confidence)
+            uncertainty_scores.append(1.0 - final_neural_confidence)
+        
+        # Advanced ensemble calculation
+        total_weighted_vote = sum(weighted_votes)
+        consensus_count = len(weighted_votes)
+        
+        # Calculate uncertainty (epistemic + aleatoric)
+        average_uncertainty = np.mean(uncertainty_scores) if uncertainty_scores else 1.0
+        consensus_uncertainty = 1.0 - (consensus_count / 5.0)  # 5 total algorithms
+        total_uncertainty = (average_uncertainty + consensus_uncertainty) / 2.0
+        
+        # Calibrated confidence with uncertainty
+        calibrated_confidence = self._calibrate_confidence(total_weighted_vote, total_uncertainty)
+        
+        # Enhanced decision making with stricter requirements
+        weapon_probability = 0.0
+        confidence = 0.0
+        
+        # Require stronger consensus and lower uncertainty for detection
+        min_consensus = 3  # Need at least 3 algorithms agreeing
+        min_weighted_score = 0.4  # Minimum weighted score
+        max_uncertainty = 0.6  # Maximum allowed uncertainty
+        
+        if (consensus_count >= min_consensus and 
+            total_weighted_vote >= min_weighted_score and 
+            total_uncertainty <= max_uncertainty):
+            
+            weapon_probability = min(1.0, calibrated_confidence)
+            confidence = weapon_probability
+        
+        return {
+            'weapon_probability': weapon_probability,
+            'confidence': confidence,
+            'consensus_count': consensus_count,
+            'uncertainty': total_uncertainty,
+            'neural_boost': neural_features.get('weapon_indicators', {}),
+            'weighted_score': total_weighted_vote,
+            'weapon_locations': weapon_locations if weapon_probability > 0.5 else []
+        }
+    
+    def _calculate_neural_boost(self, weapon_indicators: Dict) -> float:
+        """Calculate confidence boost based on neural weapon indicators"""
+        boost = 0.0
+        
+        # High-value indicators
+        if weapon_indicators.get('trigger_pattern', 0) > 0.7:
+            boost += 0.15
+        if weapon_indicators.get('barrel_pattern', 0) > 0.7:
+            boost += 0.15
+        if weapon_indicators.get('metallic_signature', 0) > 0.8:
+            boost += 0.1
+        if weapon_indicators.get('overall_threat', 0) > 0.8:
+            boost += 0.2
+        
+        return min(0.5, boost)  # Cap at 50% boost
+    
+    def _calibrate_confidence(self, raw_confidence: float, uncertainty: float) -> float:
+        """
+        Calibrate confidence score using uncertainty quantification
+        
+        Args:
+            raw_confidence (float): Raw ensemble confidence
+            uncertainty (float): Estimated uncertainty
+            
+        Returns:
+            float: Calibrated confidence score
+        """
+        try:
+            if self.confidence_calibrator is None:
+                # Fallback calibration using simple uncertainty adjustment
+                return raw_confidence * (1.0 - uncertainty * 0.5)
+            
+            # Use neural network for calibration
+            features = torch.FloatTensor([
+                raw_confidence, uncertainty, 
+                raw_confidence * uncertainty,  # Interaction term
+                raw_confidence ** 2,  # Non-linear term
+                uncertainty ** 2,  # Non-linear uncertainty
+                abs(raw_confidence - 0.5),  # Distance from neutral
+                min(raw_confidence, uncertainty),  # Min term
+                max(raw_confidence, uncertainty),  # Max term
+                np.log(raw_confidence + 1e-8),  # Log confidence
+                np.log(uncertainty + 1e-8),  # Log uncertainty
+                entropy([raw_confidence, 1-raw_confidence]),  # Information entropy
+                0.0, 0.0, 0.0, 0.0, 0.0  # Padding to 16 features
+            ]).unsqueeze(0)
+            
+            with torch.no_grad():
+                calibrated = self.confidence_calibrator(features).item()
+            
+            return calibrated
+            
+        except Exception:
+            # Fallback calibration
+            return raw_confidence * (1.0 - uncertainty * 0.3)
 
     def _detect_weapon_shapes(self, contours: List, gray: np.ndarray) -> Dict:
         """
