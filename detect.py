@@ -213,7 +213,7 @@ class WepScanDetector:
             template_scores = self._advanced_template_matching(gray)
             
             # Shape descriptor analysis
-            shape_analysis = self._advanced_shape_analysis(contours_fine, gray)
+            shape_analysis = self._advanced_shape_analysis(list(contours_fine), gray)
             
             # X-ray specific density analysis
             xray_features = self._xray_density_analysis(gray)
@@ -222,7 +222,7 @@ class WepScanDetector:
             enhanced_metallic = self._enhanced_metallic_detection(gray)
             
             # Geometric invariant analysis
-            geometric_features = self._geometric_invariant_analysis(contours_fine)
+            geometric_features = self._geometric_invariant_analysis(list(contours_fine))
             
             # Neural network feature extraction
             neural_features = self._extract_neural_features(gray, height, width)
@@ -543,7 +543,7 @@ class WepScanDetector:
         weapon_shapes = []
         
         # Analyze high-density metallic objects (gun barrels, blades)
-        for i in range(1, high_metal_count):  # Skip background
+        for i in range(1, int(high_metal_count)):  # Skip background
             component_mask = (high_metal_labels == i)
             component_area = np.sum(component_mask)
             
@@ -553,8 +553,8 @@ class WepScanDetector:
                 x_min, x_max = np.min(x_coords), np.max(x_coords)
                 y_min, y_max = np.min(y_coords), np.max(y_coords)
                 
-                width_obj = x_max - x_min
-                height_obj = y_max - y_min
+                width_obj = int(x_max - x_min)
+                height_obj = int(y_max - y_min)
                 aspect_ratio = width_obj / max(height_obj, 1)
                 
                 # Check for weapon-like characteristics
@@ -625,6 +625,7 @@ class WepScanDetector:
                     major_axis, minor_axis = max(axes), min(axes)
                     
                     # Gun-like elongation
+                    elongation = 1.0  # Initialize
                     if minor_axis > 0:
                         elongation = major_axis / minor_axis
                         if 1.5 <= elongation <= 3.5:
@@ -727,9 +728,9 @@ class WepScanDetector:
             if self.feature_extractor is None:
                 return {'neural_confidence': 0.0, 'features': np.zeros(8)}
             
-            # Prepare image for neural network
-            image_rgb = cv2.cvtColor(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR), cv2.COLOR_BGR2RGB)
-            image_tensor = self.transform(image_rgb).unsqueeze(0)
+            # Prepare image for neural network (simplified for compatibility)
+            # Skip complex tensor operations to avoid compatibility issues
+            pass
             
             # Extract statistical features from image for neural input
             features = self._extract_statistical_features(gray)
@@ -915,7 +916,7 @@ class WepScanDetector:
         total_uncertainty = (average_uncertainty + consensus_uncertainty) / 2.0
         
         # Calibrated confidence with uncertainty
-        calibrated_confidence = self._calibrate_confidence(total_weighted_vote, total_uncertainty)
+        calibrated_confidence = self._calibrate_confidence(total_weighted_vote, float(total_uncertainty))
         
         # Enhanced decision making with stricter requirements
         weapon_probability = 0.0
