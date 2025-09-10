@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shield Animation</title>
+  <style>
+    body {
+      background: #1a1b26;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .shield {
+      width: 100px;
+      height: 100px;
+      background: url("shield.png") no-repeat center/contain;
+      animation: spinPop 15s infinite;
+    }
+
+    @keyframes spinPop {
+      0% { transform: rotate(0deg) scale(1); }
+      10% { transform: rotate(360deg) scale(1.4); }  /* spin and zoom */
+      20% { transform: rotate(720deg) scale(1); }    /* snap back */
+      100% { transform: rotate(720deg) scale(1); }   /* idle till loop */
+    }
+  </style>
+</head>
+<body>
+  <div class="shield"></div>
+</body>
+</html>
